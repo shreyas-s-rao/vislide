@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VISlide — Template Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800;900&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   VISlide template — a single-file, self-contained HTML deck.
+   Authored at 1920x1080; scaled to fit any window (#deck transform).
+   Features: step reveals, synced presenter view (?present=1) with
+   elapsed timer + overall countdown + optional per-slide countdown,
+   thumbnail overlay (T), keyboard nav, hash routing.
+   Everything is in this one file. No build step, no dependencies
+   except the Google Font above (works offline with a system fallback).
+   ============================================================ */
+:root{
+  --bg:#F4F6FB; --paper:#FFFFFF; --ink:#0E1420; --muted:#5E7396; --muted-2:#7E93B4;
+  --border:#D3DDEC; --accent:#2563EB; --accent-2:#3B82F6; --green:#10A56A;
+  --coral:#EF5D52; --amber:#E0A400; --violet:#7C6CF0;
+  --font-body:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);font-family:var(--font-body);color:var(--ink);overflow:hidden}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+/* #deck is authored at a fixed 1920x1080 and scaled to fit via JS */
+#deck{position:relative;width:1920px;height:1080px;transform-origin:top left}
+.slide{position:absolute;inset:0;background:var(--bg);display:none;padding:64px 92px}
+.slide.on{display:block}
+.slide.center{display:none;align-items:center;justify-content:center;text-align:center}
+.slide.center.on{display:flex}
+.slide-inner{width:100%}
+/* progressive-reveal: hidden until its step is reached */
+.s{opacity:0;transition:opacity .38s ease, transform .38s ease;transform:translateY(8px)}
+.s.vis{opacity:1;transform:none}
+/* top brand bar */
+.topbar{position:absolute;top:52px;left:92px;right:92px;display:flex;justify-content:space-between;
+  font-family:var(--font-mono);font-size:15px;color:var(--muted-2);letter-spacing:.06em}
+.topbar .brand{display:flex;align-items:center;gap:11px;font-weight:700;color:var(--muted)}
+.topbar .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px rgba(37,99,235,.6)}
+/* headings */
+h1{font-size:76px;font-weight:900;letter-spacing:-.03em;line-height:1.02}
+h2{font-size:46px;font-weight:800;letter-spacing:-.02em}
+.accent{color:var(--accent)}.grn{color:var(--green)}
+.kicker{font-family:var(--font-mono);font-size:16px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.kick-line{font-family:var(--font-mono);font-size:18px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
+.lead{font-size:24px;color:var(--muted)}
+.h3{font-size:22px;font-weight:800}
+.desc{font-size:19px;color:var(--muted);line-height:1.5}
+.desc-sm{font-size:15px;color:var(--muted);line-height:1.45}
+.num{font-family:var(--font-mono);font-size:26px;font-weight:800;color:var(--accent);margin-right:16px}
+/* layout helpers */
+.center-fill{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:760px}
+.flex{display:flex}.col{flex-direction:column}.items-center{align-items:center}
+.justify-center{justify-content:center}.gap-3{gap:12px}.gap-4{gap:16px}.gap-6{gap:24px}
+.mt-1{margin-top:4px}.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}
+.mt-6{margin-top:24px}.mt-8{margin-top:32px}.mb-2{margin-bottom:8px}.mb-4{margin-bottom:16px}.mb-6{margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:22px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.card{background:var(--paper);border:1.5px solid var(--border);border-radius:16px;padding:24px}
+.card.rowitem{display:flex;align-items:center}
+.card-accent{background:linear-gradient(135deg,rgba(37,99,235,.08),rgba(37,99,235,.02));
+  border:1.5px solid rgba(37,99,235,.4);border-radius:16px;text-align:center;font-size:24px;font-weight:800}
+.punch{font-weight:800}
+.terminal{background:#0E1420;color:#DCE6F4;border-radius:14px;padding:22px 24px;font-family:var(--font-mono);
+  font-size:17px;line-height:1.6;white-space:pre}
+.terminal .cmt{color:#5E7396}
+.svg-wrap{width:100%;display:flex;justify-content:center}
+.svg-wrap svg{width:100%;height:auto;max-height:760px}
+/* footer + counter + progress */
+.footcredit{position:absolute;bottom:36px;left:92px;font-family:var(--font-mono);font-size:13px;color:var(--muted-2)}
+.counter{position:absolute;bottom:36px;right:92px;font-family:var(--font-mono);font-size:14px;color:var(--muted-2);letter-spacing:.1em}
+.counter b{color:var(--accent);font-weight:700}
+.progress{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);transition:width .3s ease}
+.hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);font-family:var(--font-mono);
+  font-size:12px;color:var(--muted-2);opacity:.6;z-index:40}
+.hint b{color:var(--accent);font-weight:700}
+/* thumbnail overlay */
+#thumbs{position:fixed;inset:0;background:rgba(8,12,20,.92);z-index:60;display:none;overflow:auto;padding:40px}
+#thumbs.open{display:block}
+.thumb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;max-width:1600px;margin:0 auto}
+.thumb{position:relative;border-radius:8px;overflow:hidden;border:2px solid #2B3B57;cursor:pointer;background:var(--bg)}
+.thumb.cur{border-color:var(--accent-2)}
+.thumb .box{width:1920px;height:1080px;transform-origin:top left}
+.thumb .cap{position:absolute;bottom:0;left:0;right:0;background:rgba(8,12,20,.8);color:#DCE6F4;
+  font-family:var(--font-mono);font-size:12px;padding:5px 8px}
+</style>
+</head>
+<body>
+<div id="stage"><div id="deck"></div></div>
+<div id="thumbs"><div class="thumb-grid" id="thumbGrid"></div></div>
+<div class="hint" id="hint"></div>
+
+<script>
+/* ============================================================
+   PALETTE constants (mirror the CSS vars) so infographics can
+   reference colours in inline SVG generated from JS.
+   ============================================================ */
+const INK='#0E1420',MUT='#5E7396',PAPER='#FFFFFF',BORD='#D3DDEC',
+  ACC='#2563EB',ACC2='#3B82F6',GRN='#10A56A',CORAL='#EF5D52',AMBER='#E0A400',VIO='#7C6CF0';
+
+/* ============================================================
+   INFOGRAPHIC HELPERS  — reusable inline-SVG builders.
+   Each returns an SVG string. Elements tagged class="s"
+   data-appear="N" reveal on step N (see the engine below).
+   These mirror the snippet library in reference/infographics.md.
+   ============================================================ */
+
+/* a rounded box with a title + optional subtitle */
+function box(x,y,w,h,label,sub,stroke,fill){
+  stroke=stroke||MUT; fill=fill||PAPER;
+  return `<g>
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="${fill}" stroke="${stroke}" stroke-width="2.4"/>
+    <text x="${x+w/2}" y="${y+h/2+(sub?-4:6)}" font-size="22" text-anchor="middle" fill="${INK}" font-weight="800">${label}</text>
+    ${sub?`<text x="${x+w/2}" y="${y+h/2+20}" font-size="14" text-anchor="middle" fill="${MUT}">${sub}</text>`:''}
+  </g>`;
+}
+
+/* INFOGRAPHIC 1 — an animated left-to-right FLOW with moving-dot packets.
+   4 stages, each revealed on its own step; arrows animate a dot along the path. */
+function infFlow(){
+  const stage=(x,label,sub,c)=>box(x,180,230,110,label,sub,c,`${c}14`);
+  const arrow=(id,x1,x2,c)=>`
+    <path id="${id}" d="M${x1} 235 H ${x2}" fill="none" stroke="${c}" stroke-width="3" class="flow" marker-end="url(#fArrow)"/>
+    <circle r="6" fill="${c}"><animateMotion dur="2.2s" repeatCount="indefinite" rotate="auto"><mpath href="#${id}"/></animateMotion></circle>`;
+  return `<svg viewBox="0 0 1440 460" width="1440">
+    <defs><marker id="fArrow" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" refX="11" refY="6" orient="auto"><path d="M0 0L12 6L0 12Z" fill="${MUT}"/></marker></defs>
+    <g class="s" data-appear="1">${stage(70,'Ingest','raw input',ACC)}</g>
+    <g class="s" data-appear="2">${arrow('fa1',300,388,ACC2)}${stage(390,'Transform','normalize',VIO)}</g>
+    <g class="s" data-appear="3">${arrow('fa2',620,708,VIO)}${stage(710,'Process','the work',CORAL)}</g>
+    <g class="s" data-appear="4">${arrow('fa3',940,1028,CORAL)}${stage(1030,'Serve','result out',GRN)}</g>
+    <g class="s" data-appear="5">
+      <rect x="70" y="330" width="1190" height="70" rx="12" fill="rgba(37,99,235,.06)" stroke="${ACC}" stroke-width="1.6"/>
+      <text x="665" y="372" font-size="18" text-anchor="middle" fill="${ACC}" font-weight="700">Each stage scales independently — that is the whole point of the pipeline.</text>
+    </g>
+  </svg>`;
+}
+
+/* INFOGRAPHIC 2 — a LAYERED STACK (bottom-to-top), one layer per step.
+   Mirrors the "reference stack" pattern: labelled bands with a spine label. */
+function infStack(){
+  const layers=[
+    ['Presentation','UI · API surface',ACC],
+    ['Application','business logic',VIO],
+    ['Platform','runtime · orchestration',GRN],
+    ['Infrastructure','compute · storage · network',AMBER],
+  ];
+  const W=900,x=(1440-W)/2,hL=88,gap=12,baseY=40;
+  return `<svg viewBox="0 0 1440 470" width="1440">
+    ${layers.map(([t,s,c],i)=>{const y=baseY+(layers.length-1-i)*(hL+gap);return `
+      <g class="s" data-appear="${i+1}">
+        <rect x="${x}" y="${y}" width="${W}" height="${hL}" rx="12" fill="${c}18" stroke="${c}" stroke-width="2.4"/>
+        <text x="${x+28}" y="${y+38}" font-size="22" fill="${INK}" font-weight="800">${t}</text>
+        <text x="${x+28}" y="${y+64}" font-size="15" fill="${MUT}">${s}</text>
+      </g>`;}).join('')}
+    <g class="s" data-appear="1">
+      <text x="${x-24}" y="${baseY+18}" font-size="13" fill="${GRN}" font-weight="800" text-anchor="end">top</text>
+      <text x="${x-24}" y="${baseY+4*(hL+gap)-4}" font-size="13" fill="${MUT}" font-weight="800" text-anchor="end">base</text>
+      <line x1="${x-14}" y1="${baseY+8}" x2="${x-14}" y2="${baseY+4*(hL+gap)-8}" stroke="${BORD}" stroke-width="2"/>
+    </g>
+  </svg>`;
+}
+
+/* INFOGRAPHIC 3 — a PYRAMID / HIERARCHY (widening bands top-to-bottom).
+   Mirrors the storage-hierarchy pattern; static (single appear). */
+function infPyramid(){
+  const tiers=[
+    ['Hot','tiny · fastest',GRN,0],
+    ['Warm','fast · medium',ACC,1],
+    ['Cool','large · slower',VIO,2],
+    ['Cold','vast · slowest',MUT,3],
+  ];
+  const H=70,gap=8,topW=360,step=150,cx=720,y0=40;
+  return `<svg viewBox="0 0 1440 380" width="1440">
+    <g class="s" data-appear="0">
+      ${tiers.map(([t,s,c,i])=>{const w=topW+i*step,x=cx-w/2,y=y0+i*(H+gap);return `
+        <rect x="${x}" y="${y}" width="${w}" height="${H}" rx="8" fill="${c}22" stroke="${c}" stroke-width="2"/>
+        <text x="${cx}" y="${y+30}" font-size="18" text-anchor="middle" fill="${INK}" font-weight="800">${t}</text>
+        <text x="${cx}" y="${y+52}" font-size="13" text-anchor="middle" fill="${MUT}">${s}</text>`;}).join('')}
+      <text x="180" y="66" font-size="13" fill="${GRN}" font-weight="800">fast · small</text>
+      <text x="170" y="352" font-size="13" fill="${MUT}" font-weight="800">slow · large</text>
+    </g>
+  </svg>`;
+}
+
+/* INFOGRAPHIC 4 — a CENTRAL OBJECT with orbiting cards (for the
+   "requirements around a core" pattern). Cards reveal one per step.
+   Boxes are placed on the LEFT column (angles pointing left) or RIGHT
+   column (angles pointing right), vertically stacked, with an elbow
+   connector to the core — keeps them clear of the circle and each other. */
+function infHubSpokes(){
+  const cx=720,cy=260,cr=90;
+  // left column and right column, each with 3 stacked cards
+  const left=[['Speed','low latency'],['Simplicity','one API'],['Cost','per unit']];
+  const right=[['Scale','horizontal'],['Safety','isolation'],['Observability','metrics']];
+  const bw=210,bh=64,gapY=26, colY=[80,80+bh+gapY,80+2*(bh+gapY)];
+  const lx=250, rx=1440-250-bw;                 // column x positions
+  const card=(x,y,t,s,step)=>`<g class="s" data-appear="${step}">
+    <rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="12" fill="${PAPER}" stroke="${VIO}" stroke-width="2"/>
+    <text x="${x+bw/2}" y="${y+27}" font-size="17" text-anchor="middle" fill="${INK}" font-weight="800">${t}</text>
+    <text x="${x+bw/2}" y="${y+47}" font-size="13" text-anchor="middle" fill="${MUT}">${s}</text></g>`;
+  const elbow=(x,y,side,step)=>{ // connector from card inner edge to the core
+    const sx=side==='l'?x+bw:x, sy=y+bh/2, tx=side==='l'?cx-cr:cx+cr, ty=cy, mx=(sx+tx)/2;
+    return `<g class="s" data-appear="${step}"><path d="M${sx} ${sy} H ${mx} V ${ty} H ${tx}" fill="none" stroke="${BORD}" stroke-width="2" marker-end="url(#hubA)"/></g>`;};
+  return `<svg viewBox="0 0 1440 520" width="1440">
+    <defs><marker id="hubA" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10Z" fill="${BORD}"/></marker></defs>
+    <g class="s" data-appear="1">
+      <circle cx="${cx}" cy="${cy}" r="${cr}" fill="rgba(37,99,235,.10)" stroke="${ACC}" stroke-width="3"/>
+      <text x="${cx}" y="${cy-4}" font-size="24" text-anchor="middle" fill="${ACC}" font-weight="900">Core</text>
+      <text x="${cx}" y="${cy+22}" font-size="14" text-anchor="middle" fill="${MUT}">the thing</text>
+    </g>
+    ${left.map(([t,s],i)=>elbow(lx,colY[i],'l',i+2)+card(lx,colY[i],t,s,i+2)).join('')}
+    ${right.map(([t,s],i)=>elbow(rx,colY[i],'r',i+5)+card(rx,colY[i],t,s,i+5)).join('')}
+  </svg>`;
+}
+
+/* ============================================================
+   SLIDES.  Each: {label, steps, html, center?}.
+   - label: "NN Title" — the leading number is cosmetic (footer/thumb);
+     the ARRAY POSITION is the real slide index used everywhere.
+   - steps: highest data-step/data-appear on the slide (0 = static).
+   - center:true for title/divider slides.
+   bar(right) renders the top brand bar with an optional right-side tag.
+   ============================================================ */
+const bar=(right)=>`<div class="topbar"><span class="brand"><span class="dot"></span> VISlide</span>${right?`<span>${right}</span>`:''}</div>`;
+function chapter(n,title,kick){return {center:true,label:`${n} ${title}`,steps:0,html:`
+  <div class="slide-inner"><div class="kick-line mb-4">${kick}</div><h1>${title}</h1></div>`};}
+
+const slides=[
+
+/* 01 — TITLE */
+{center:true,label:"01 Title",steps:0,html:`
+  <div class="slide-inner">
+    <div class="kicker mb-4">VISlide · template</div>
+    <h1>Build <span class="accent">animated</span>,<br>infographic-rich <span class="grn">decks</span></h1>
+    <div class="lead mt-6" style="color:var(--muted-2)">A single-file HTML presentation · press <b>P</b> for presenter, <b>T</b> for thumbnails</div>
+  </div>`},
+
+/* 02 — CARDS GRID (reveal one per step) */
+{label:"02 Cards",steps:3,html:`
+  ${bar('Section · Basics')}
+  <div class="slide-inner">
+    <h2 class="mb-6">A grid of cards</h2>
+    <div class="center-fill">
+    <div class="grid-3">
+      ${[['01','Reveal on click','each card appears on its own step'],
+         ['02','Consistent style','one card component, reused'],
+         ['03','Readable','big title, muted description']].map(([n,t,d],i)=>`
+        <div class="card" data-step="${i+1}"><div class="h3"><span class="num">${n}</span>${t}</div><div class="desc mt-3">${d}</div></div>`).join('')}
+    </div>
+    </div>
+  </div>`},
+
+/* 03 — CARDS AROUND A CENTRAL OBJECT (hub + spokes) */
+{label:"03 Hub & spokes",steps:7,html:`
+  ${bar('Section · Basics')}
+  <div class="slide-inner">
+    <h2>Requirements around a core</h2>
+    <div class="center-fill">
+    <div class="svg-wrap mt-4">${infHubSpokes()}</div>
+    </div>
+  </div>`},
+
+/* 04 — DIVIDER */
+chapter("04","Infographics","Section 2"),
+
+/* 05 — ANIMATED FLOW with moving-dot packets */
+{label:"05 Animated flow",steps:5,html:`
+  ${bar('Section 2 · Infographics')}
+  <div class="slide-inner">
+    <h2>An animated pipeline</h2>
+    <div class="center-fill">
+    <div class="svg-wrap mt-4">${infFlow()}</div>
+    </div>
+  </div>`},
+
+/* 06 — LAYERED STACK (bottom-to-top, one per step) */
+{label:"06 Layered stack",steps:4,html:`
+  ${bar('Section 2 · Infographics')}
+  <div class="slide-inner">
+    <h2>A layered stack</h2>
+    <div class="center-fill">
+    <div class="svg-wrap mt-4">${infStack()}</div>
+    </div>
+  </div>`},
+
+/* 07 — PYRAMID / HIERARCHY (static) */
+{label:"07 Pyramid",steps:0,html:`
+  ${bar('Section 2 · Infographics')}
+  <div class="slide-inner">
+    <h2>A hierarchy / pyramid</h2>
+    <div class="center-fill">
+    <div class="svg-wrap mt-4">${infPyramid()}</div>
+    </div>
+  </div>`},
+
+/* 08 — CODE / TERMINAL + punchline */
+{label:"08 Code block",steps:2,html:`
+  ${bar('Section 2 · Infographics')}
+  <div class="slide-inner">
+    <h2 class="mb-6">Code &amp; punchline</h2>
+    <div class="center-fill">
+    <div class="terminal" data-step="1">$ vislide build
+  <span class="cmt"># renders a single self-contained index.html</span>
+  ok — 8 slides, 0 dependencies</div>
+    <div class="card-accent mt-6 punch" data-step="2" style="padding:22px">One file. <span class="accent">Zero build step.</span> Opens anywhere.</div>
+    </div>
+  </div>`},
+
+/* 09 — THANK YOU */
+{center:true,label:"09 Thank you",steps:0,html:`
+  <div class="slide-inner">
+    <h1>Thank you.</h1>
+    <div class="lead mt-6">Edit <span class="accent">slides[]</span> and the <span class="accent">inf*()</span> helpers to make it yours.</div>
+  </div>`},
+];
+
+/* ============================================================
+   PER-SLIDE TIME BUDGET (seconds), 1-indexed by slide number.
+   0 = no budget (title/divider). The VISlide skill computes these
+   from user-provided timings and embeds them here. The overall
+   countdown (sum of all) is mandatory; the per-slide countdown is
+   optional and only shows when a slide has a non-zero budget.
+   ============================================================ */
+const SLIDE_SECONDS=[0, 0,60,90,0,120,90,60,60,0];
+function slideSeconds(i){return SLIDE_SECONDS[i+1]||0;}
+const TOTAL_SECONDS=SLIDE_SECONDS.reduce((a,b)=>a+b,0);
+function fmtBudget(sec){ if(!sec)return ''; return sec%60===0?`${sec/60}m`:(sec<60?`${sec}s`:`${Math.floor(sec/60)}m${sec%60}s`); }
+
+/* ============================================================
+   ENGINE — build DOM, scale-to-fit, step reveals, hash routing,
+   keyboard nav, thumbnail overlay, presenter sync.
+   ============================================================ */
+const PRESENT=new URLSearchParams(location.search).has('present');
+const deck=document.getElementById('deck');
+const N=slides.length;
+let cur=0, step=0;
+
+deck.innerHTML=slides.map((s,i)=>{
+  const cls='slide'+(s.center?' center':'');
+  const counter=`<div class="counter">${String(i+1).padStart(2,'0')} <b>/</b> ${String(N).padStart(2,'0')}</div>`;
+  const foot=`<div class="footcredit">INTERNAL</div>`;
+  return `<section class="${cls}" data-i="${i}"><div class="progress"></div>${s.html}${i>0?counter:''}${foot}</section>`;
+}).join('');
+const sections=[...deck.children];
+
+function fit(){
+  const sx=window.innerWidth/1920, sy=window.innerHeight/1080, k=Math.min(sx,sy);
+  deck.style.transform=`scale(${k})`;
+  deck.style.left=`${(window.innerWidth-1920*k)/2}px`;
+  deck.style.top=`${(window.innerHeight-1080*k)/2}px`;
+}
+window.addEventListener('resize',fit); fit();
+
+function maxStep(i){return slides[i]&&slides[i].steps||0;}
+/* an element reveals when step >= its data-step/data-appear, and
+   (if present) step <= its data-until */
+function applySteps(){
+  const sec=sections[cur];
+  sec.querySelectorAll('[data-step],[data-appear],[data-until]').forEach(el=>{
+    const a=+(el.getAttribute('data-step')||el.getAttribute('data-appear')||0);
+    const u=el.hasAttribute('data-until')?+el.getAttribute('data-until'):Infinity;
+    const on=step>=a && step<=u;
+    el.classList.toggle('vis', on);
+    el.classList.toggle('s', true);
+  });
+  // progress bar reflects overall position
+  const pct=(cur + (maxStep(cur)?step/maxStep(cur):1))/N*100;
+  sec.querySelector('.progress').style.width=pct+'%';
+}
+function show(i){
+  cur=Math.max(0,Math.min(N-1,i)); step=0;
+  sections.forEach((s,j)=>s.classList.toggle('on',j===cur));
+  applySteps(); save(); location.hash=`${cur+1}/0`;
+}
+function next(){ if(step<maxStep(cur)){step++;applySteps();save();location.hash=`${cur+1}/${step}`;} else if(cur<N-1){show(cur+1);} }
+function prev(){ if(step>0){step--;applySteps();save();location.hash=`${cur+1}/${step}`;} else if(cur>0){cur--;step=maxStep(cur);sections.forEach((s,j)=>s.classList.toggle('on',j===cur));applySteps();save();location.hash=`${cur+1}/${step}`;} }
+
+/* localStorage sync (deck <-> presenter window) */
+const KEY='vislide-state';
+function save(){try{localStorage.setItem(KEY,JSON.stringify({cur,step,t:Date.now()}));}catch(e){}}
+if(!PRESENT){
+  window.addEventListener('storage',e=>{ if(e.key===KEY&&e.newValue){try{const s=JSON.parse(e.newValue);
+    if(s.cur!==cur||s.step!==step){cur=s.cur;step=Math.min(s.step,maxStep(cur));
+      sections.forEach((x,j)=>x.classList.toggle('on',j===cur));applySteps();}}catch(_){}}});
+}
+
+/* hash routing: #slide/step (1-indexed slide) */
+function gotoHash(){
+  const m=(location.hash||'').match(/#(\d+)(?:\/(\d+))?/);
+  if(m){cur=Math.max(0,Math.min(N-1,(+m[1])-1)); step=Math.min(+(m[2]||0),maxStep(cur));
+    sections.forEach((s,j)=>s.classList.toggle('on',j===cur)); applySteps();}
+  else show(0);
+}
+window.addEventListener('hashchange',()=>{ if(!thumbsOpen) gotoHash(); });
+
+/* ---------- thumbnail overlay (T) ---------- */
+let thumbsOpen=false;
+function buildThumbs(){
+  const grid=document.getElementById('thumbGrid');
+  grid.innerHTML=slides.map((s,i)=>`<div class="thumb" data-i="${i}">
+    <div class="box" id="thb${i}"></div><div class="cap">${String(i+1).padStart(2,'0')} · ${(s.label||'').replace(/^\d+\s*/,'')}</div></div>`).join('');
+  // clone each rendered slide into its tile, scaled down
+  slides.forEach((s,i)=>{
+    const host=document.getElementById('thb'+i);
+    const clone=sections[i].cloneNode(true);
+    clone.classList.add('on'); clone.style.position='static';
+    clone.querySelectorAll('.s').forEach(el=>el.classList.add('vis')); // show all steps in thumb
+    host.appendChild(clone);
+    const tileW=(1600-3*18)/4; const k=tileW/1920;
+    host.style.transform=`scale(${k})`;
+    host.parentElement.style.height=(1080*k)+'px';
+    host.parentElement.style.width=(1920*k)+'px';
+  });
+  grid.querySelectorAll('.thumb').forEach(t=>t.addEventListener('click',()=>{closeThumbs();show(+t.dataset.i);}));
+}
+function openThumbs(){ if(thumbsOpen)return; thumbsOpen=true;
+  const o=document.getElementById('thumbs'); if(!o.dataset.built){buildThumbs();o.dataset.built='1';}
+  [...document.querySelectorAll('.thumb')].forEach((t,i)=>t.classList.toggle('cur',i===cur));
+  o.classList.add('open'); }
+function closeThumbs(){ thumbsOpen=false; document.getElementById('thumbs').classList.remove('open'); }
+function toggleThumbs(){ thumbsOpen?closeThumbs():openThumbs(); }
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown',e=>{
+  if(!PRESENT && (e.key==='t'||e.key==='T')){e.preventDefault();toggleThumbs();return;}
+  if(e.key==='Escape'&&thumbsOpen){e.preventDefault();closeThumbs();return;}
+  if(thumbsOpen)return;
+  if(['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();next();}
+  else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();prev();}
+  else if(e.key==='Home')show(0); else if(e.key==='End')show(N-1);
+  else if(e.key==='f'||e.key==='F'){ if(!document.fullscreenElement)document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+  else if(e.key==='p'||e.key==='P'){ window.open(location.pathname+'?present=1','vislide-presenter','width=1180,height=820'); }
+});
+document.getElementById('stage').addEventListener('click',()=>{ if(!thumbsOpen&&!PRESENT) next(); });
+
+document.getElementById('hint').innerHTML='<b>→</b>/<b>Space</b> next · <b>←</b> back · <b>T</b> thumbnails · <b>F</b> fullscreen · <b>P</b> presenter';
+
+if(PRESENT){ runPresenter(); } else { gotoHash(); }
+
+/* ============================================================
+   PRESENTER VIEW (?present=1) — synced second window.
+   Shows current notes, next-slide preview, step counter, an
+   ELAPSED timer, a mandatory OVERALL countdown, and an optional
+   PER-SLIDE countdown (green → amber → red-negative).
+   ============================================================ */
+async function loadNotes(){
+  try{ const r=await fetch('notes.md'); if(!r.ok)throw 0; const txt=await r.text();
+    const out=[]; let curN=null,buf=[];
+    txt.replace(/\r/g,'').split('\n').forEach(line=>{
+      const m=line.match(/^##\s+(\d+)\s+—\s+(.*)$/);
+      if(m){ if(curN!==null)out[curN]=buf.join('\n').trim(); curN=(+m[1])-1; buf=[]; }
+      else if(curN!==null) buf.push(line);
+    });
+    if(curN!==null)out[curN]=buf.join('\n').trim();
+    return out;
+  }catch(e){ return []; }
+}
+function runPresenter(){
+  document.title='Presenter · VISlide';
+  document.getElementById('stage').innerHTML=`
+    <div id="pv">
+      <header>
+        <div class="pv-brand"><span class="dot"></span> Presenter · VISlide</div>
+        <div class="pv-clocks">
+          <div class="pv-cd" id="pvSlideCd" title="This slide (click to reset)">—</div>
+          <div class="pv-cd" id="pvOverall" title="Whole talk remaining">--:--</div>
+          <div class="pv-timer" id="pvTimer" title="Elapsed (click to reset)">00:00</div>
+        </div>
+      </header>
+      <main>
+        <section class="pv-now">
+          <div class="pv-meta"><span id="pvNo"></span><span id="pvStep"></span></div>
+          <h2 id="pvTitle"></h2>
+          <div class="pv-notes" id="pvNotes"></div>
+        </section>
+        <aside class="pv-next">
+          <div class="pv-nextlbl">NEXT</div>
+          <div class="pv-nexttitle" id="pvNextTitle"></div>
+          <div class="pv-controls"><button id="pvPrev">← Prev</button><button id="pvNext">Next →</button></div>
+          <div class="pv-hint">Arrows / Space advance both windows</div>
+          <div class="pv-dots" id="pvDots"></div>
+        </aside>
+      </main>
+    </div>
+    <style>
+      #stage{position:fixed;inset:0;background:#0E1420;color:#E7ECF3;display:block}
+      #pv{position:absolute;inset:0;display:flex;flex-direction:column;font-family:var(--font-body)}
+      #pv header{display:flex;justify-content:space-between;align-items:center;padding:18px 28px;border-bottom:1px solid #223049}
+      .pv-brand{font-family:var(--font-mono);font-size:15px;color:#9DB0CC;display:flex;align-items:center;gap:12px}
+      .pv-brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent-2)}
+      .pv-clocks{display:flex;align-items:center;gap:22px}
+      .pv-cd{font-family:var(--font-mono);font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;color:#3FD08A}
+      .pv-cd.warn{color:#F5B845}.pv-cd.over{color:#FF5C6C}
+      .pv-timer{font-family:var(--font-mono);font-size:28px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;cursor:pointer}
+      #pv main{flex:1;display:grid;grid-template-columns:1.55fr 1fr;min-height:0}
+      .pv-now{padding:26px 30px;display:flex;flex-direction:column;min-height:0;border-right:1px solid #223049}
+      .pv-meta{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:15px;color:#7E93B4}
+      .pv-now h2{font-size:38px;color:#fff;margin:10px 0 18px;line-height:1.05}
+      .pv-notes{flex:1;overflow:auto;font-size:22px;line-height:1.5;color:#DCE6F4;white-space:pre-wrap}
+      .pv-notes .cl{color:var(--accent-2);font-weight:700}
+      .pv-notes ul{margin:2px 0;padding-left:1.1em;list-style:none}
+      .pv-notes li{position:relative;margin:6px 0}.pv-notes li::before{content:"–";position:absolute;left:-1em;color:#5E7396}
+      .pv-notes code{font-family:var(--font-mono);font-size:.85em;background:#16233A;border-radius:5px;padding:1px 6px;color:#B9D4FF}
+      .pv-next{padding:26px;display:flex;flex-direction:column;background:#0B111C}
+      .pv-nextlbl{font-family:var(--font-mono);font-size:13px;letter-spacing:.22em;color:#6B7F9E}
+      .pv-nexttitle{font-size:24px;font-weight:800;color:#B9C7DC;margin:8px 0 16px}
+      .pv-controls{display:flex;gap:12px;margin:8px 0 12px}
+      .pv-controls button{flex:1;font-family:var(--font-mono);font-size:16px;font-weight:700;padding:12px;border-radius:10px;border:1px solid #2B3B57;background:#16233A;color:#DCE6F4;cursor:pointer}
+      .pv-controls button:hover{background:#1E3050;border-color:var(--accent-2)}
+      .pv-hint{font-family:var(--font-mono);font-size:11.5px;color:#5E7396}
+      .pv-dots{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+      .pv-dots i{width:26px;height:8px;border-radius:99px;background:#2B3B57;cursor:pointer}
+      .pv-dots i.on{background:var(--accent-2)}
+    </style>`;
+  const $=id=>document.getElementById(id);
+  const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inline=s=>esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\[(\d+|click)\]/g,'<span class="cl">[$1]</span>');
+  const fmtNotes=t=>{ if(!t)return ''; let html='',depth=0; const close=to=>{while(depth>to){html+='</ul>';depth--;}};
+    String(t).split('\n').forEach(raw=>{ if(!raw.trim())return;
+      const b=raw.match(/^(\s*)[-•]\s+(.*)$/);
+      if(b){const lvl=Math.min(Math.floor(b[1].length/2)+1,3); if(lvl>depth){while(depth<lvl){html+='<ul>';depth++;}} else if(lvl<depth)close(lvl); html+='<li>'+inline(b[2])+'</li>'; return;}
+      close(0); html+='<p>'+inline(raw.trim())+'</p>'; });
+    close(0); return html; };
+  let pcur=0,pstep=0,t0=Date.now(),cdSlide=-1,cdStart=Date.now();
+  let NOTES=[];
+  function read(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&typeof s.cur==='number'){pcur=s.cur;pstep=s.step||0;}}catch(_){}}
+  function write(){try{localStorage.setItem(KEY,JSON.stringify({cur:pcur,step:pstep,t:Date.now()}));}catch(_){}}
+  function maxS(i){return slides[i]&&slides[i].steps||0;}
+  $('pvDots').innerHTML=slides.map((_,i)=>`<i title="Slide ${i+1}"></i>`).join('');
+  [...$('pvDots').children].forEach((d,i)=>d.addEventListener('click',()=>{pcur=i;pstep=0;write();render();}));
+  function render(){
+    const s=slides[pcur]||{},ns=slides[pcur+1];
+    const budg=slideSeconds(pcur);
+    $('pvNo').textContent=`SLIDE ${pcur+1} / ${slides.length}`;
+    $('pvStep').textContent=maxS(pcur)?`STEP ${pstep} / ${maxS(pcur)}`:'—';
+    $('pvTitle').textContent=(s.label||'').replace(/^\d+\s*/,'')+(budg?`  (${fmtBudget(budg)})`:'');
+    $('pvNotes').innerHTML=fmtNotes(NOTES[pcur])||'<span style="color:#5E7396">Add notes under "## '+(pcur+1)+' — ..." in notes.md (serve over http).</span>';
+    $('pvNextTitle').textContent=ns?(ns.label||'').replace(/^\d+\s*/,''):'— End —';
+    [...$('pvDots').children].forEach((d,i)=>d.classList.toggle('on',i===pcur));
+    if(pcur!==cdSlide){cdSlide=pcur;cdStart=Date.now();}
+    tick();
+  }
+  function fmtClock(sec){const neg=sec<0,a=Math.abs(sec);return `${neg?'-':''}${String(Math.floor(a/60)).padStart(2,'0')}:${String(a%60).padStart(2,'0')}`;}
+  function tick(){
+    const el=$('pvSlideCd'),budg=slideSeconds(cdSlide);
+    if(!budg){el.textContent='—';el.className='pv-cd';}
+    else{const left=Math.round(budg-(Date.now()-cdStart)/1000);el.textContent=fmtClock(left);
+      el.className='pv-cd'+(left<0?' over':(left<=Math.min(30,budg*0.25)?' warn':''));}
+    const over=$('pvOverall'),oleft=Math.round(TOTAL_SECONDS-(Date.now()-t0)/1000);
+    over.textContent=fmtClock(oleft); over.className='pv-cd'+(oleft<0?' over':(oleft<=60?' warn':''));
+    const e=Math.floor((Date.now()-t0)/1000); $('pvTimer').textContent=`${String(Math.floor(e/60)).padStart(2,'0')}:${String(e%60).padStart(2,'0')}`;
+  }
+  function goNext(){if(pstep<maxS(pcur))pstep++;else if(pcur<slides.length-1){pcur++;pstep=0;}write();render();}
+  function goPrev(){if(pstep>0)pstep--;else if(pcur>0){pcur--;pstep=maxS(pcur);}write();render();}
+  $('pvNext').addEventListener('click',goNext); $('pvPrev').addEventListener('click',goPrev);
+  document.addEventListener('keydown',e=>{ if(['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)){e.preventDefault();goNext();}
+    else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();goPrev();} });
+  window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue){read();render();}});
+  $('pvTimer').addEventListener('click',()=>{t0=Date.now();});
+  $('pvSlideCd').addEventListener('click',()=>{cdStart=Date.now();tick();});
+  setInterval(tick,1000);
+  read();render();
+  loadNotes().then(n=>{NOTES=n;render();});
+}
+</script>
+</body>
+</html>

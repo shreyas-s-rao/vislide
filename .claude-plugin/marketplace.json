@@ -1,0 +1,13 @@
+{
+  "name": "vislide",
+  "owner": {
+    "name": "Shreyas Rao"
+  },
+  "plugins": [
+    {
+      "name": "vislide",
+      "source": ".",
+      "description": "Build animated, infographic-rich, single-file HTML presentation decks with step reveals, a synced presenter view, countdown timers, and a thumbnail overview."
+    }
+  ]
+}
