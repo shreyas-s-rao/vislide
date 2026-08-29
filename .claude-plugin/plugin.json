@@ -1,12 +1,12 @@
 {
   "name": "vislide",
-  "description": "Build animated, infographic-rich, single-file HTML presentation decks with step reveals, a synced presenter view, countdown timers, and a thumbnail overview.",
-  "version": "1.0.0",
+  "description": "Build animated, infographic-rich, single-file HTML presentation decks with step reveals, a synced presenter view, countdown timers, and a thumbnail overview — and export them to high-resolution PDF.",
+  "version": "1.1.0",
   "author": {
     "name": "Shreyas Rao"
   },
   "homepage": "https://github.com/shreyas-s-rao/vislide",
   "repository": "https://github.com/shreyas-s-rao/vislide",
   "license": "MIT",
-  "keywords": ["presentation", "slides", "html", "svg", "infographic", "deck"]
+  "keywords": ["presentation", "slides", "html", "svg", "infographic", "deck", "pdf", "export"]
 }

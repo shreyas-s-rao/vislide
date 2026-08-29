@@ -13,6 +13,7 @@ self-contained `index.html` you can open in any browser.
 - **Synced presenter view** (`?present=1`) with speaker notes, next-slide preview,
   an elapsed timer, a whole-talk countdown, and an optional per-slide countdown.
 - **Thumbnail overview** (press `T`) to jump between slides.
+- **High-res PDF export** — turn any deck into a shareable PDF, one page per slide or per reveal step, at 2x/3x for crisp 1080p/4K.
 - **Keyboard nav + deep-linkable** `#slide/step` hash routing.
 
 ## Install
@@ -44,13 +45,34 @@ instead and commit it with the repo.
 .claude-plugin/
 ├── plugin.json                 # plugin manifest
 └── marketplace.json            # marketplace listing (install via /plugin)
-.claude/skills/vislide/
-├── SKILL.md                    # the method Claude follows
-├── template/
-│   ├── index.html              # complete, working starter deck (all features)
-│   └── notes.md                # matching presenter notes
-└── reference/
-    └── infographics.md         # copyable inline-SVG infographic snippets
+.claude/skills/
+├── vislide/                    # build the deck
+│   ├── SKILL.md                # the method Claude follows
+│   ├── template/
+│   │   ├── index.html          # complete, working starter deck (all features)
+│   │   └── notes.md            # matching presenter notes
+│   └── reference/
+│       └── infographics.md     # copyable inline-SVG infographic snippets
+└── deck-to-pdf/                # export the deck to PDF
+    ├── SKILL.md
+    └── scripts/
+        └── deck2pdf.py         # headless-Chrome high-res renderer + PDF assembler
+```
+
+## Export a deck to PDF
+
+The bundled `deck-to-pdf` skill renders any `#slide/step` HTML deck to a
+high-resolution PDF (one page per slide, or per reveal step, at 2x/3x for crisp
+1080p/4K output). Ask Claude to "export this deck to PDF", or run the script:
+
+```sh
+python3 -m venv /tmp/deck2pdf-venv
+/tmp/deck2pdf-venv/bin/pip install websocket-client pillow
+cd <deck-dir> && python3 -m http.server 8000 &
+/tmp/deck2pdf-venv/bin/python3 .claude/skills/deck-to-pdf/scripts/deck2pdf.py \
+  --url http://localhost:8000/index.html --out deck.pdf
+# one page per slide (final step). Add --pages all for every step,
+# or --slide 10=2,3,5 --slide 27=1-6 to pick specific steps per slide.
 ```
 
 ## Try the template
